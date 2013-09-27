@@ -75,7 +75,11 @@ class VomnibarUI
 
   updateSelection: ->
     for i in [0...@completionList.children.length]
-      @completionList.children[i].className = (if i == @selection then "vomnibarSelected" else "")
+      if i == @selection
+        @completionList.children[i].className = "vomnibarSelected"
+        @setQuery(@completionList.urls[i])
+      else 
+        @completionList.children[i].className = ""
 
   #
   # Returns the user's action ("up", "down", "enter", "dismiss" or null) based on their keypress.
@@ -85,6 +89,8 @@ class VomnibarUI
     key = KeyboardUtils.getKeyChar(event)
     if (KeyboardUtils.isEscape(event))
       return "dismiss"
+    else if KeyboardUtils.isBackspace(event)
+      return "backspace"
     else if (key == "up" ||
         (event.shiftKey && event.keyCode == keyCodes.tab) ||
         (event.ctrlKey && (key == "k" || key == "p")))
@@ -104,9 +110,15 @@ class VomnibarUI
       (event.shiftKey || event.ctrlKey || KeyboardUtils.isPrimaryModifierKey(event))
     if (action == "dismiss")
       @hide()
+    else if (action == "backspace")
+      @selection = -1
+      return true
     else if (action == "up")
       @selection -= 1
-      @selection = @completions.length - 1 if @selection < @initialSelectionValue
+      if @selection < @initialSelectionValue
+        @selection = @completions.length - 1 
+      else
+        @setQuery("")
       @updateSelection()
     else if (action == "down")
       @selection += 1
@@ -146,6 +158,7 @@ class VomnibarUI
   populateUiWithCompletions: (completions) ->
     # update completion list with the new data
     @completionList.innerHTML = completions.map((completion) -> "<li>#{completion.html}</li>").join("")
+    @completionList.urls = (completion.url for completion in completions)
     @completionList.style.display = if completions.length > 0 then "block" else "none"
     @selection = Math.min(Math.max(@initialSelectionValue, @selection), @completions.length - 1)
     @updateSelection()
