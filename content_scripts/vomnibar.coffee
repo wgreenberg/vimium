@@ -125,22 +125,16 @@ class VomnibarUI
       @selection = @initialSelectionValue if @selection == @completions.length
       @updateSelection()
     else if (action == "enter")
-      # If they type something and hit enter without selecting a completion from our list of suggestions,
-      # try to open their query as a URL directly. If it doesn't look like a URL, we will search using
-      # google.
-      if (@selection == -1)
-        query = @input.value.trim()
-        # <Enter> on an empty vomnibar is a no-op.
-        return unless 0 < query.length
-        @hide()
-        chrome.runtime.sendMessage({
-          handler: if openInNewTab then "openUrlInNewTab" else "openUrlInCurrentTab"
-          url: query })
-      else
-        @update true, =>
-          # Shift+Enter will open the result in a new tab instead of the current tab.
-          @completions[@selection].performAction(openInNewTab)
-          @hide()
+      # When the user presses "enter", if they've selected an autocomplete option,
+      # it will have already populated the vonmnibar's input field. If not, just
+      # attempt to load whatever they've put there
+      query = @input.value.trim()
+      # <Enter> on an empty vomnibar is a no-op.
+      return unless 0 < query.length
+      @hide()
+      chrome.runtime.sendMessage({
+        handler: if openInNewTab then "openUrlInNewTab" else "openUrlInCurrentTab"
+        url: query })
 
     # It seems like we have to manually suppress the event here and still return true.
     event.stopPropagation()
