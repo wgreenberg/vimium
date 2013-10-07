@@ -10,11 +10,12 @@ Vomnibar =
   #
   # Activate the Vomnibox.
   #
-  activateWithCompleter: (completerName, refreshInterval, initialQueryValue, selectFirstResult, forceNewTab) ->
+  activateWithCompleter: (completerName, refreshInterval, initialQueryValue, selectFirstResult, forceNewTab, selectionSetsQuery) ->
     completer = @getCompleter(completerName)
     @vomnibarUI = new VomnibarUI() unless @vomnibarUI
     completer.refresh()
     @vomnibarUI.setInitialSelectionValue(if selectFirstResult then 0 else -1)
+    @vomnibarUI.setSelectionSetsQuery(selectionSetsQuery)
     @vomnibarUI.setCompleter(completer)
     @vomnibarUI.setRefreshInterval(refreshInterval)
     @vomnibarUI.setForceNewTab(forceNewTab)
@@ -23,17 +24,17 @@ Vomnibar =
       @vomnibarUI.setQuery(initialQueryValue)
       @vomnibarUI.update()
 
-  activate: -> @activateWithCompleter("omni", 100)
-  activateInNewTab: -> @activateWithCompleter("omni", 100, null, false, true)
-  activateTabSelection: -> @activateWithCompleter("tabs", 0, null, true)
+  activate: -> @activateWithCompleter("omni", 100, null, false, false, true)
+  activateInNewTab: -> @activateWithCompleter("omni", 100, null, false, true, true)
+  activateTabSelection: -> @activateWithCompleter("tabs", 0, null, true, false, false)
   activateBookmarks: -> @activateWithCompleter("bookmarks", 0, null, true)
   activateBookmarksInNewTab: -> @activateWithCompleter("bookmarks", 0, null, true, true)
   activateWithCurrentUrl: -> 
     chrome.runtime.sendMessage { handler: "getCurrentTabUrl" }, (url) =>
-      @activateWithCompleter("omni", 100, url)
+      @activateWithCompleter("omni", 100, url, false, false, true)
   activateWithCurrentUrlInNewTab: -> 
     chrome.runtime.sendMessage { handler: "getCurrentTabUrl" }, (url) =>
-      @activateWithCompleter("omni", 100, url, false, true)
+      @activateWithCompleter("omni", 100, url, false, true, true)
   getUI: -> @vomnibarUI
 
 
@@ -46,6 +47,9 @@ class VomnibarUI
 
   setInitialSelectionValue: (initialSelectionValue) ->
     @initialSelectionValue = initialSelectionValue
+
+  setSelectionSetsQuery: (selectionSetsQuery) ->
+    @selectionSetsQuery = selectionSetsQuery
 
   setCompleter: (completer) ->
     @completer = completer
@@ -77,7 +81,8 @@ class VomnibarUI
     for i in [0...@completionList.children.length]
       if i == @selection
         @completionList.children[i].className = "vomnibarSelected"
-        @setQuery(@completionList.urls[i])
+        if @selectionSetsQuery
+          @setQuery(@completionList.urls[i])
       else 
         @completionList.children[i].className = ""
 
@@ -128,13 +133,18 @@ class VomnibarUI
       # When the user presses "enter", if they've selected an autocomplete option,
       # it will have already populated the vonmnibar's input field. If not, just
       # attempt to load whatever they've put there
-      query = @input.value.trim()
-      # <Enter> on an empty vomnibar is a no-op.
-      return unless 0 < query.length
-      @hide()
-      chrome.runtime.sendMessage({
-        handler: if openInNewTab then "openUrlInNewTab" else "openUrlInCurrentTab"
-        url: query })
+      if (@selectionSetsQuery or @selection == -1)
+        query = @input.value.trim()
+        # <Enter> on an empty vomnibar is a no-op.
+        return unless 0 < query.length
+        @hide()
+        chrome.runtime.sendMessage({
+          handler: if openInNewTab then "openUrlInNewTab" else "openUrlInCurrentTab"
+          url: query })
+      else
+        @update true, =>
+          @completions[@selection].performAction(openInNewTab)
+          @hide()
 
     # It seems like we have to manually suppress the event here and still return true.
     event.stopPropagation()
