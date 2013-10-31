@@ -109,7 +109,11 @@ class VomnibarUI
 
   onKeydown: (event) ->
     action = @actionFromKeyEvent(event)
-    return true unless action # pass through
+
+    # if the user just typed a letter, reset the selection and pass through
+    if not action
+      @selection = -1
+      return true
 
     openInNewTab = @forceNewTab ||
       (event.shiftKey || event.ctrlKey || KeyboardUtils.isPrimaryModifierKey(event))
